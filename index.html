@@ -15,9 +15,11 @@ header { padding-bottom: 18px; border-bottom: 1px solid var(--border); margin-bo
 header .titles h1 { font-size: 26px; margin: 0 0 6px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
 header .titles .tagline { color: var(--muted); font-size: 14px; max-width: 720px; }
 header .titles .timestamp { color: var(--muted); font-size: 12px; margin-top: 8px; font-style: italic; }
-header .actions { flex-shrink: 0; }
+header .actions { flex-shrink: 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .btn { display: inline-block; font: inherit; padding: 9px 14px; border-radius: 6px; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: white; text-decoration: none; font-weight: 500; font-size: 13.5px; }
 .btn:hover { background: #2f5a37; border-color: #2f5a37; }
+.btn.secondary { background: var(--card); color: var(--ink); border-color: var(--border); }
+.btn.secondary:hover { background: #f3f1ea; }
 .summary { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 26px; }
 @media (max-width: 760px) { .summary { grid-template-columns: repeat(2, minmax(0,1fr)); } }
 .summary .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
@@ -68,6 +70,15 @@ footer { margin-top: 50px; padding-top: 22px; border-top: 1px solid var(--border
 footer .disclaim { margin-top: 8px; font-style: italic; }
 .method-note { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 4px; margin-bottom: 22px; font-size: 13px; color: #2a4f30; }
 .method-note strong { color: var(--accent); }
+/* Gantt chart styles */
+.gantt-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px 14px; overflow-x: auto; }
+.gantt-svg { display: block; width: 100%; height: auto; min-width: 720px; font-family: inherit; }
+.gantt-legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--muted); align-items: center; }
+.gantt-legend .swatch { display: inline-block; width: 14px; height: 10px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+.gantt-legend .swatch.bar { background: #c9d8c9; }
+.gantt-legend .swatch.ocga { background: var(--warn); width: 2px; height: 14px; }
+.gantt-legend .swatch.deadline { background: var(--err); width: 2px; height: 14px; }
+.gantt-legend .swatch.today { background: var(--ink); width: 2px; height: 14px; opacity: 0.6; }
 </style>
 </head>
 <body>
@@ -79,12 +90,13 @@ footer .disclaim { margin-top: 8px; font-style: italic; }
       <div class="timestamp" id="snapshot-time"></div>
     </div>
     <div class="actions">
+      <a class="btn secondary" href="https://www.notion.so/valueinsightevaluation/Business-Development-3193f8b63eae803d960aeadd97b5a1fc" target="_blank" rel="noopener">Open in Notion ↗</a>
       <a class="btn" id="add-btn" href="#">+ Suggest a new opportunity</a>
     </div>
   </header>
 
   <div class="method-note">
-    <strong>About this list.</strong> Opportunities are sourced from <a href="https://simpler.grants.gov/" target="_blank" rel="noopener" style="color:var(--accent)">grants.gov</a>, agency solicitations, and direct outreach. The <em>Status</em> column reflects AVAL's internal pursuit decision, not the opportunity's funding-cycle status. Always confirm details with the issuing agency before acting. For forecast notices on grants.gov, full NOFO requirements are pending and may differ from what's shown here.
+    <strong>About this list.</strong> Opportunities are sourced from <a href="https://simpler.grants.gov/" target="_blank" rel="noopener" style="color:var(--accent)">grants.gov</a>, agency solicitations, and direct outreach. The <em>Status</em> column reflects AVAL's internal pursuit decision, not the opportunity's funding-cycle status. The <em>OCGA cutoff</em> in the timeline below marks the internal UCLA Office of Contract & Grant Administration submission deadline — two weeks before the funder's stated deadline. Always confirm details with the issuing agency before acting. For forecast notices on grants.gov, full NOFO requirements are pending.
   </div>
 
   <div class="summary" id="summary">
@@ -93,6 +105,19 @@ footer .disclaim { margin-top: 8px; font-style: italic; }
     <div class="card"><div class="label">Total funding</div><div class="value" id="stat-funding">–</div><div class="sub" id="stat-funding-sub">across these opportunities</div></div>
     <div class="card"><div class="label">Next deadline</div><div class="value" id="stat-next">–</div><div class="sub" id="stat-next-sub">&nbsp;</div></div>
   </div>
+
+  <section>
+    <h2>Timeline <span class="count" id="gantt-count"></span></h2>
+    <div class="gantt-wrap">
+      <div id="gantt"></div>
+      <div class="gantt-legend">
+        <span><span class="swatch bar"></span>RFP active period (posted → deadline)</span>
+        <span><span class="swatch ocga"></span>OCGA cutoff (deadline − 14 days)</span>
+        <span><span class="swatch deadline"></span>Funder deadline</span>
+        <span><span class="swatch today"></span>Today</span>
+      </div>
+    </div>
+  </section>
 
   <section>
     <h2>Upcoming deadlines <span class="count" id="deadlines-count"></span></h2>
@@ -113,7 +138,7 @@ footer .disclaim { margin-top: 8px; font-style: italic; }
 <script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js"></script>
 <script>
 // ============================================================================
-// CONFIG — edit these to customize without touching the data block.
+// CONFIG
 // ============================================================================
 const SUGGEST_EMAIL = "blaggr@g.ucla.edu";
 const SUGGEST_SUBJECT = "Suggest a funding opportunity for AVAL tracker";
@@ -130,11 +155,12 @@ Why it might fit AVAL's portfolio:
 
 Submitted by:
 `;
+const OCGA_LEAD_DAYS = 14; // submit to OCGA this many days before the funder deadline
 
 // ============================================================================
 // DATA — baked in at snapshot time. To refresh, regenerate from the Notion DB.
 // ============================================================================
-const SNAPSHOT_AT = "2026-04-28T16:00:00Z";
+const SNAPSHOT_AT = "2026-04-28T16:30:00Z";
 
 const OPPORTUNITIES = [
   {
@@ -169,7 +195,7 @@ const OPPORTUNITIES = [
     name: "Predictive Analytics in Child Welfare Demonstration Grants",
     organization: "HHS — Administration for Children and Families (ACYF/CB)",
     status: "Not started",
-    summary: "Forecast funding opportunity (HHS-2026-ACF-ACYF-CA-0037) supporting child welfare jurisdictions as demonstration sites for the responsible use and future replication of predictive analytics. Grantees will design, implement, and test predictive analytics strategies; build and sustain agency capacity; participate in collaboration and shared learning; and evaluate training and technical assistance activities. Cooperative agreement, no cost sharing. ~10 awards expected: floor $400K, ceiling $600K, total $6M. Project start ~Sept 30, 2026. Eligibility: state, county, city/township, federally recognized tribal governments. Assistance listing 93.670.",
+    summary: "Forecast funding opportunity (HHS-2026-ACF-ACYF-CA-0037) supporting child welfare jurisdictions as demonstration sites for the responsible use and future replication of predictive analytics. Cooperative agreement, no cost sharing. ~10 awards expected: floor $400K, ceiling $600K, total $6M. Project start ~Sept 30, 2026.",
     funder: "Federal",
     tags: ["Child welfare", "AI / data", "Evaluation"],
     contact: "Cara Kelly",
@@ -183,7 +209,7 @@ const OPPORTUNITIES = [
     name: "Technology Enhanced Adoptive Family Recruiting and Matching",
     organization: "HHS — Administration for Children and Families (ACYF/CB)",
     status: "Not started",
-    summary: "Forecast funding opportunity (HHS-2026-ACF-ACYF-CO-0040) for technology-enabled strategies improving adoptive matching, placement, and permanency for children in foster care awaiting adoption. Awards go to four regional centers building secure, accessible, interoperable technology — data-informed recruitment, AI-assisted matching, predictive analytics. Centers strengthen data infrastructure, support continuous quality improvement, develop scalable resources for nationwide adoption. Applicants must demonstrate BOTH technology AND child welfare practice expertise at the organizational level. Cooperative agreement, no cost sharing. 4 awards: floor $1.5M, ceiling $2.674M; total $10.696M. Project start ~Oct 1, 2026.",
+    summary: "Forecast funding opportunity (HHS-2026-ACF-ACYF-CO-0040) for technology-enabled strategies improving adoptive matching, placement, and permanency for children in foster care awaiting adoption. Awards go to four regional centers building secure, accessible, interoperable technology — data-informed recruitment, AI-assisted matching, predictive analytics. Applicants must demonstrate BOTH technology AND child welfare practice expertise. Cooperative agreement, no cost sharing. 4 awards: floor $1.5M, ceiling $2.674M; total $10.696M.",
     funder: "Federal",
     tags: ["Child welfare", "AI / data", "Evaluation"],
     contact: "Surina Amin",
@@ -197,7 +223,7 @@ const OPPORTUNITIES = [
     name: "Foster Parents Network Analytics Hub (HUB)",
     organization: "HHS — Administration for Children and Families (ACYF/CB)",
     status: "Not started",
-    summary: "Forecast funding opportunity (HHS-2026-ACF-ACYF-CT-0042) supporting the 'A Home for Every Child' initiative. Single award (~$2.5M) to establish the Foster Parents Network Analytics Hub: a national demonstration project under Section 426 of the Social Security Act tasked with achieving a foster-home-to-child ratio of more than 1:1 in every state by 2029. HUB activities: secure analytics platform integrated with state SACWIS/CCWIS systems; rapid technical assistance to help states analyze foster home dynamics, identify capacity gaps, develop retention strategies, improve placement matching. Five-year cooperative agreement. Award floor $1.5M, ceiling $2.5M; total $2.5M. Assistance listing 93.648.",
+    summary: "Forecast funding opportunity (HHS-2026-ACF-ACYF-CT-0042) supporting the 'A Home for Every Child' initiative. Single award (~$2.5M) to establish the Foster Parents Network Analytics Hub: a national demonstration project under Section 426 of the Social Security Act tasked with achieving a foster-home-to-child ratio of more than 1:1 in every state by 2029. Five-year cooperative agreement.",
     funder: "Federal",
     tags: ["Child welfare", "AI / data", "Evaluation"],
     contact: "Catherine Heath",
@@ -284,6 +310,19 @@ function tagChips(tags) {
   return tags.map(t => `<span class="chip">${escapeHtml(t)}</span>`).join("");
 }
 
+function addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function shortName(name) {
+  // Truncate long opportunity names for the gantt label
+  if (!name) return "";
+  if (name.length <= 42) return name;
+  return name.slice(0, 40).trim() + "…";
+}
+
 // ============================================================================
 // Render
 // ============================================================================
@@ -341,6 +380,211 @@ function renderSummary() {
   }
 }
 
+// ============================================================================
+// Gantt chart
+// ============================================================================
+function renderGantt() {
+  const items = OPPORTUNITIES.filter(o => o.posted && o.proposalDue);
+  if (!items.length) {
+    document.getElementById("gantt").innerHTML = '<div class="empty">No opportunities with both posted date and deadline.</div>';
+    return;
+  }
+  document.getElementById("gantt-count").textContent = `(${items.length})`;
+
+  // Sort by deadline ascending (earliest at top)
+  items.sort((a, b) => new Date(a.proposalDue) - new Date(b.proposalDue));
+
+  // Compute date range with padding
+  const today = new Date();
+  const allDates = items.flatMap(o => [new Date(o.posted), new Date(o.proposalDue), addDays(o.proposalDue, -OCGA_LEAD_DAYS)]);
+  allDates.push(today);
+  const minDate = addDays(new Date(Math.min(...allDates.map(d => d.getTime()))), -7);
+  const maxDate = addDays(new Date(Math.max(...allDates.map(d => d.getTime()))), 7);
+  const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+
+  // Layout
+  const labelW = 240;
+  const chartW = 760; // SVG viewBox — scales to container width
+  const rowH = 36;
+  const headerH = 30;
+  const padTop = 4;
+  const padBot = 6;
+  const totalH = headerH + items.length * rowH + padBot + padTop;
+  const totalW = labelW + chartW;
+
+  const xFor = (date) => {
+    const d = (new Date(date) - minDate) / (1000 * 60 * 60 * 24);
+    return labelW + (d / totalDays) * chartW;
+  };
+
+  // Build month tick positions
+  const ticks = [];
+  let cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  while (cur <= maxDate) {
+    if (cur >= minDate) ticks.push(new Date(cur));
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+
+  // SVG construction
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
+  svg.setAttribute("class", "gantt-svg");
+  svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
+
+  // Background grid: vertical lines at month boundaries
+  ticks.forEach((t) => {
+    const x = xFor(t);
+    const ln = document.createElementNS(svgNS, "line");
+    ln.setAttribute("x1", x); ln.setAttribute("x2", x);
+    ln.setAttribute("y1", headerH - 6); ln.setAttribute("y2", totalH - padBot);
+    ln.setAttribute("stroke", "#e6e4dd");
+    ln.setAttribute("stroke-width", "1");
+    svg.appendChild(ln);
+
+    const lbl = document.createElementNS(svgNS, "text");
+    lbl.setAttribute("x", x + 4);
+    lbl.setAttribute("y", 16);
+    lbl.setAttribute("font-size", "11");
+    lbl.setAttribute("fill", "#6b6962");
+    lbl.setAttribute("font-weight", "600");
+    lbl.textContent = t.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+    svg.appendChild(lbl);
+  });
+
+  // Today line
+  if (today >= minDate && today <= maxDate) {
+    const tx = xFor(today);
+    const ln = document.createElementNS(svgNS, "line");
+    ln.setAttribute("x1", tx); ln.setAttribute("x2", tx);
+    ln.setAttribute("y1", headerH - 4); ln.setAttribute("y2", totalH - padBot);
+    ln.setAttribute("stroke", "#1f1d18");
+    ln.setAttribute("stroke-width", "1.5");
+    ln.setAttribute("stroke-dasharray", "3 3");
+    ln.setAttribute("opacity", "0.55");
+    svg.appendChild(ln);
+
+    const lbl = document.createElementNS(svgNS, "text");
+    lbl.setAttribute("x", tx + 4);
+    lbl.setAttribute("y", headerH - 7);
+    lbl.setAttribute("font-size", "10");
+    lbl.setAttribute("fill", "#1f1d18");
+    lbl.setAttribute("font-weight", "600");
+    lbl.setAttribute("opacity", "0.75");
+    lbl.textContent = "Today";
+    svg.appendChild(lbl);
+  }
+
+  // Per-row content
+  items.forEach((o, i) => {
+    const yMid = headerH + padTop + i * rowH + rowH / 2;
+    const yBarTop = yMid - 7;
+    const xPosted = xFor(o.posted);
+    const xDeadline = xFor(o.proposalDue);
+    const xOcga = xFor(addDays(o.proposalDue, -OCGA_LEAD_DAYS));
+
+    // Row separator line
+    if (i > 0) {
+      const sep = document.createElementNS(svgNS, "line");
+      sep.setAttribute("x1", 0); sep.setAttribute("x2", totalW);
+      sep.setAttribute("y1", headerH + padTop + i * rowH);
+      sep.setAttribute("y2", headerH + padTop + i * rowH);
+      sep.setAttribute("stroke", "#f0eee8");
+      sep.setAttribute("stroke-width", "1");
+      svg.appendChild(sep);
+    }
+
+    // Label (truncated name)
+    const label = document.createElementNS(svgNS, "text");
+    label.setAttribute("x", 0);
+    label.setAttribute("y", yMid - 2);
+    label.setAttribute("font-size", "12");
+    label.setAttribute("fill", "#1f1d18");
+    label.setAttribute("font-weight", "600");
+    label.textContent = shortName(o.name);
+    svg.appendChild(label);
+
+    // Sub-label (organization)
+    const sub = document.createElementNS(svgNS, "text");
+    sub.setAttribute("x", 0);
+    sub.setAttribute("y", yMid + 11);
+    sub.setAttribute("font-size", "10.5");
+    sub.setAttribute("fill", "#6b6962");
+    sub.textContent = (o.organization || "").length > 42 ? o.organization.slice(0, 40).trim() + "…" : (o.organization || "");
+    svg.appendChild(sub);
+
+    // Bar (active period)
+    const bar = document.createElementNS(svgNS, "rect");
+    bar.setAttribute("x", xPosted);
+    bar.setAttribute("y", yBarTop);
+    bar.setAttribute("width", Math.max(2, xDeadline - xPosted));
+    bar.setAttribute("height", 14);
+    bar.setAttribute("rx", 4);
+    bar.setAttribute("fill", "#c9d8c9");
+    bar.setAttribute("stroke", "#86a78b");
+    bar.setAttribute("stroke-width", "0.5");
+    const barTitle = document.createElementNS(svgNS, "title");
+    barTitle.textContent = `${o.name}\nPosted: ${fmtDate(o.posted)}\nDeadline: ${fmtDate(o.proposalDue)}\nOCGA cutoff: ${fmtDate(addDays(o.proposalDue, -OCGA_LEAD_DAYS))}`;
+    bar.appendChild(barTitle);
+    svg.appendChild(bar);
+
+    // OCGA cutoff segment (last 14 days highlighted)
+    if (xOcga > xPosted && xOcga < xDeadline) {
+      const ocgaBar = document.createElementNS(svgNS, "rect");
+      ocgaBar.setAttribute("x", xOcga);
+      ocgaBar.setAttribute("y", yBarTop);
+      ocgaBar.setAttribute("width", Math.max(1, xDeadline - xOcga));
+      ocgaBar.setAttribute("height", 14);
+      ocgaBar.setAttribute("rx", 4);
+      ocgaBar.setAttribute("fill", "#fbf0e1");
+      ocgaBar.setAttribute("opacity", "0.85");
+      svg.appendChild(ocgaBar);
+    }
+
+    // OCGA cutoff vertical tick
+    const ocgaTick = document.createElementNS(svgNS, "line");
+    ocgaTick.setAttribute("x1", xOcga); ocgaTick.setAttribute("x2", xOcga);
+    ocgaTick.setAttribute("y1", yBarTop - 3); ocgaTick.setAttribute("y2", yBarTop + 17);
+    ocgaTick.setAttribute("stroke", "#b06a1c");
+    ocgaTick.setAttribute("stroke-width", "2");
+    svg.appendChild(ocgaTick);
+
+    // Deadline marker (filled circle at end)
+    const dot = document.createElementNS(svgNS, "circle");
+    dot.setAttribute("cx", xDeadline);
+    dot.setAttribute("cy", yMid);
+    dot.setAttribute("r", 5);
+    dot.setAttribute("fill", "#9b2f2a");
+    svg.appendChild(dot);
+
+    // Deadline date label (right of bar)
+    const dlLabel = document.createElementNS(svgNS, "text");
+    dlLabel.setAttribute("x", xDeadline + 9);
+    dlLabel.setAttribute("y", yMid + 4);
+    dlLabel.setAttribute("font-size", "10.5");
+    dlLabel.setAttribute("fill", "#9b2f2a");
+    dlLabel.setAttribute("font-weight", "600");
+    dlLabel.textContent = fmtDate(o.proposalDue);
+    svg.appendChild(dlLabel);
+
+    // Posted date label (left of bar, only if room)
+    if (xPosted - labelW > 50) {
+      const psLabel = document.createElementNS(svgNS, "text");
+      psLabel.setAttribute("x", xPosted - 4);
+      psLabel.setAttribute("y", yMid + 4);
+      psLabel.setAttribute("font-size", "10");
+      psLabel.setAttribute("fill", "#6b6962");
+      psLabel.setAttribute("text-anchor", "end");
+      psLabel.textContent = fmtDate(o.posted);
+      svg.appendChild(psLabel);
+    }
+  });
+
+  const target = document.getElementById("gantt");
+  target.innerHTML = "";
+  target.appendChild(svg);
+}
+
 function renderDeadlines() {
   const upcoming = OPPORTUNITIES
     .filter(o => bucketForStatus(o.status) === "active" && o.proposalDue && new Date(o.proposalDue).getTime() > Date.now() - 7*24*60*60*1000)
@@ -390,7 +634,7 @@ function renderTable() {
 
   new gridjs.Grid({
     columns: [
-      { name: "Opportunity", width: "32%", formatter: (_, row) => {
+      { name: "Opportunity", width: "30%", formatter: (_, row) => {
           const o = row.cells[row.cells.length - 1].data;
           const sourceLink = o.sourceUrl
             ? `<a class="source-link" href="${escapeHtml(o.sourceUrl)}" target="_blank" rel="noopener">Source ↗</a>`
@@ -399,7 +643,7 @@ function renderTable() {
             <div class="row-name">${escapeHtml(o.name)}</div>
             <div style="font-size:12px;color:var(--muted)">${escapeHtml(o.organization)}</div>
             ${sourceLink ? `<div style="margin-top:4px">${sourceLink}</div>` : ""}
-            <div class="row-summary">${escapeHtml((o.summary || "").slice(0, 240))}${o.summary && o.summary.length > 240 ? "…" : ""}</div>
+            <div class="row-summary">${escapeHtml((o.summary || "").slice(0, 220))}${o.summary && o.summary.length > 220 ? "…" : ""}</div>
           </div>`);
       }},
       { name: "Status", formatter: (cell) => cell ? gridjs.html(`<span class="chip ${statusClass(cell)}">${escapeHtml(cell)}</span>`) : "—" },
@@ -424,7 +668,7 @@ function renderTable() {
             return gridjs.html(`<div>${dateText}<br>${rel}</div>`);
           }
       },
-      { name: "Funding (program)", formatter: (cell) => cell ? gridjs.html(`<strong>${fmtMoney(cell)}</strong>`) : `<span style="color:var(--muted)">—</span>` },
+      { name: "Funding", sort: { compare: (a, b) => (Number(a) || 0) - (Number(b) || 0) }, formatter: (cell) => cell ? gridjs.html(`<strong>${fmtMoney(cell)}</strong>`) : `<span style="color:var(--muted)">—</span>` },
       { name: "Topics", formatter: (cell) => gridjs.html(`<div class="tag-cell">${tagChips(cell)}</div>`) },
       { name: "Contact", formatter: (_, row) => {
           const o = row.cells[row.cells.length - 1].data;
@@ -448,6 +692,7 @@ function renderTable() {
 renderTimestamp();
 renderSuggestButton();
 renderSummary();
+renderGantt();
 renderDeadlines();
 renderTable();
 </script>
